@@ -12,14 +12,15 @@ uint8_t DProtocal::retrieveMessage(CircularByteArray *cba, DProtocolMessage *mes
   if (cba->peek((uint8_t *)&message_header, 2, 0) && message_header == 0xFCFD) {
     // check the protocol version
     if (cba->peek(&protocol_version, 1, 2) && protocol_version == 1) {
-      cba->peek((uint8_t *)&messageLength, 1, 3);
-
+      cba->peek((uint8_t *)&messageLength, 1, 4);
       // then retrieve the message and translate to d protocol message
       message->protocolVersion = 1;
+      message->clientId = 1;
       message->length = messageLength;
-      cba->peek((uint8_t *)&message->type, 2, 5);
+
+      cba->peek((uint8_t *)&message->type, 2, 6);
       message->body = new uint8_t[messageLength - 2];
-      cba->peek(message->body, messageLength - 2, 7);
+      cba->peek(message->body, messageLength - 2, 8);
 
       cba->remove(messageLength);
       return 0;

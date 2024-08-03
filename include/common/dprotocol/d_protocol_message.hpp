@@ -8,6 +8,7 @@
 struct DProtocolMessage{
   uint16_t messageStartMagicNumber = MESSAGE_START_MAGIC_NUMBER;
   uint8_t protocolVersion;
+  uint8_t clientId;
   uint16_t length;
   uint16_t type;
   uint8_t *body;
