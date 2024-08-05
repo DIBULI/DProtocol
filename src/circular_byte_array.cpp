@@ -20,32 +20,49 @@ uint8_t CircularByteArray::append(const uint8_t* data, uint32_t size) {
   if (size > remain()) {
     return 1;
   } else {
-    uint32_t lengthToTheEnd = arraySize - headerIndex;
-    
-    if (lengthToTheEnd >= size) {  // if the remaining array (to the end) capacity can store all the request data
+    uint32_t lengthToTheEnd;
+    if (tailIndex > headerIndex) {
       memcpy(this->byteArray + headerIndex, data, size);
       headerIndex += size;
-      headerIndex %= arraySize;
-    } else {  // if the remaining array (to the end) capacity can  not store all the request data
-      memcpy(this->byteArray + headerIndex, data, lengthToTheEnd);
-      memcpy(this->byteArray, data + lengthToTheEnd, size - lengthToTheEnd);
-      headerIndex = size - lengthToTheEnd;
+    } else {
+      lengthToTheEnd = arraySize - headerIndex;
+      if (lengthToTheEnd >= size) {  // if the remaining array (to the end) capacity can store all the request data
+        memcpy(this->byteArray + headerIndex, data, size);
+        headerIndex += size;
+        headerIndex %= arraySize;
+      } else {  // if the remaining array (to the end) capacity can  not store all the request data
+        memcpy(this->byteArray + headerIndex, data, lengthToTheEnd);
+        memcpy(this->byteArray, data + lengthToTheEnd, size - lengthToTheEnd);
+        headerIndex = size - lengthToTheEnd;
+      }
     }
+    
     length += size;
-
     return 0;
   }
 }
 
 uint8_t CircularByteArray::peek(uint8_t* data, uint32_t size, uint32_t offset) {
   std::lock_guard<std::mutex> lock(xMutex);
-  uint32_t lengthToTheEnd = arraySize - tailIndex - offset;
-
-  if (lengthToTheEnd >= size) { // if the remaining array (to the end) capacity can retrieve all the request data
-    std::memcpy(data, this->byteArray + this->tailIndex + offset, size_t(10));
-  } else { // if the remaining array (to the end) capacity can not retrieve all the request data
-    std::memcpy(data, this->byteArray + this->tailIndex + offset, lengthToTheEnd);
-    std::memcpy(data + lengthToTheEnd, this->byteArray, size - lengthToTheEnd);
+  uint32_t lengthToTheEnd;
+  if (size + offset > length) {
+    return 1;
+  } else {
+    if (tailIndex + offset <= headerIndex) {
+      memcpy(data, this->byteArray + this->tailIndex + offset, size);
+    } else {
+      if (tailIndex + offset + size <= arraySize) {
+        memcpy(data, this->byteArray + this->tailIndex + offset, size);
+      } else { // if the remaining array (to the end) capacity can not retrieve all the request data
+        if (arraySize > (tailIndex + offset)) {
+          lengthToTheEnd = arraySize - (tailIndex + offset);
+          memcpy(data, this->byteArray + this->tailIndex + offset, lengthToTheEnd);
+          memcpy(data + lengthToTheEnd, this->byteArray, size - lengthToTheEnd);
+        } else {
+          memcpy(data, this->byteArray + this->tailIndex + offset - arraySize, size);
+        }
+      }
+    }
   }
 
   return 0;
@@ -56,20 +73,21 @@ uint8_t CircularByteArray::remove(uint32_t size) {
 
   if (size > length) {
     return 1;
-  }
-
-  if (headerIndex >= tailIndex) {
-      tailIndex += size;
-  } else { // if the remaining array (to the end) capacity can not delete the requested data size
-    if (arraySize - tailIndex > size) {
+  } else {
+    if (headerIndex >= tailIndex) {
       tailIndex += size;
     } else {
-      tailIndex = size - (arraySize - tailIndex);
+      uint32_t lengthToTheEnd = arraySize - tailIndex;
+      if (lengthToTheEnd >= size) {
+        tailIndex += size;
+        tailIndex %= arraySize;
+      } else {
+        tailIndex = size - lengthToTheEnd;
+      }
     }
   }
 
   length -= size;
-
   return 0;
 }
 

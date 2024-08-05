@@ -20,74 +20,84 @@ CircularByteArray::~CircularByteArray() {
 
 uint8_t CircularByteArray::append(const uint8_t* data, uint32_t size) {
   taskENTER_CRITICAL();
-    if (size > remain()) {
-      return 1;
+  if (size > remain()) {
+    taskEXIT_CRITICAL();
+    return 1;
+  } else {
+    uint32_t lengthToTheEnd;
+    if (tailIndex > headerIndex) {
+      memcpy(this->byteArray + headerIndex, data, size);
+      headerIndex += size;
     } else {
-      uint32_t lengthToTheEnd;
-      if (tailIndex > headerIndex) {
+      lengthToTheEnd = arraySize - headerIndex;
+      if (lengthToTheEnd >= size) {  // if the remaining array (to the end) capacity can store all the request data
         memcpy(this->byteArray + headerIndex, data, size);
         headerIndex += size;
-      } else {
-        lengthToTheEnd = arraySize - headerIndex;
-        if (lengthToTheEnd >= size) {  // if the remaining array (to the end) capacity can store all the request data
-          memcpy(this->byteArray + headerIndex, data, size);
-          headerIndex += size;
-          headerIndex %= arraySize;
-        } else {  // if the remaining array (to the end) capacity can  not store all the request data
-          memcpy(this->byteArray + headerIndex, data, lengthToTheEnd);
-          memcpy(this->byteArray, data + lengthToTheEnd, size - lengthToTheEnd);
-          headerIndex = size - lengthToTheEnd;
-        }
+        headerIndex %= arraySize;
+      } else {  // if the remaining array (to the end) capacity can  not store all the request data
+        memcpy(this->byteArray + headerIndex, data, lengthToTheEnd);
+        memcpy(this->byteArray, data + lengthToTheEnd, size - lengthToTheEnd);
+        headerIndex = size - lengthToTheEnd;
       }
-      
-      length += size;
-      taskEXIT_CRITICAL();
-      return 0;
     }
+    
+    length += size;
+    taskEXIT_CRITICAL();
+    return 0;
+  }
 }
 
 uint8_t CircularByteArray::peek(uint8_t* data, uint32_t size, uint32_t offset) {
   taskENTER_CRITICAL();
-    uint32_t lengthToTheEnd;
-    if (size + offset > length) {
-      xSemaphoreGive(xMutex);
-      return 1;
+  uint32_t lengthToTheEnd;
+  if (size + offset > length) {
+    taskEXIT_CRITICAL();
+    return 1;
+  } else {
+    if (tailIndex + offset <= headerIndex) {
+      memcpy(data, this->byteArray + this->tailIndex + offset, size);
     } else {
-      if (tailIndex + offset <= headerIndex) {
+      if (tailIndex + offset + size <= arraySize) {
         memcpy(data, this->byteArray + this->tailIndex + offset, size);
-      } else {
-        if (tailIndex + offset + size <= arraySize) {
-          memcpy(data, this->byteArray + this->tailIndex + offset, size);
-        } else { // if the remaining array (to the end) capacity can not retrieve all the request data
-          if (arraySize > (tailIndex + offset)) {
-            lengthToTheEnd = arraySize - (tailIndex + offset);
-            memcpy(data, this->byteArray + this->tailIndex + offset, lengthToTheEnd);
-            memcpy(data + lengthToTheEnd, this->byteArray, size - lengthToTheEnd);
-          } else {
-            memcpy(data, this->byteArray + this->tailIndex + offset - arraySize, size);
-          }
+      } else { // if the remaining array (to the end) capacity can not retrieve all the request data
+        if (arraySize > (tailIndex + offset)) {
+          lengthToTheEnd = arraySize - (tailIndex + offset);
+          memcpy(data, this->byteArray + this->tailIndex + offset, lengthToTheEnd);
+          memcpy(data + lengthToTheEnd, this->byteArray, size - lengthToTheEnd);
+        } else {
+          memcpy(data, this->byteArray + this->tailIndex + offset - arraySize, size);
         }
       }
     }
-    taskEXIT_CRITICAL();
-    return 0;
+  }
+  taskEXIT_CRITICAL();
+  return 0;
 }
 
 uint8_t CircularByteArray::remove(uint32_t size) {
   taskENTER_CRITICAL();
-    uint32_t lengthToTheEnd = arraySize - tailIndex;
 
-    if (lengthToTheEnd > size) { // if the remaining array (to the end) capacity can delete the requested data size
+  if (size > length) {
+    return 1;
+  } else {
+    if (headerIndex >= tailIndex) {
       tailIndex += size;
-      tailIndex %= arraySize;
-    } else { // if the remaining array (to the end) capacity can not delete the requested data size
-      tailIndex = size - lengthToTheEnd;
+    } else {
+      uint32_t lengthToTheEnd = arraySize - tailIndex;
+      if (lengthToTheEnd >= size) {
+        tailIndex += size;
+        tailIndex %= arraySize;
+      } else {
+        tailIndex = size - lengthToTheEnd;
+      }
     }
+  }
+  
 
-    length -= size;
-    taskEXIT_CRITICAL();
+  length -= size;
+  taskEXIT_CRITICAL();
 
-    return 0;
+  return 0;
 
 }
 
