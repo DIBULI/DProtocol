@@ -53,9 +53,9 @@ else()
 endif()
 
 
-
 target_sources(${CMAKE_PROJECT_NAME} INTERFACE ${DPROTOCOL_SOURCE_FILES})
 
+target_link_libraries(${CMAKE_PROJECT_NAME} INTERFACE freertos_kernel)
 
 
 if(NOT MICROCONTROLLER_COMPILE)

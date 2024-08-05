@@ -12,6 +12,10 @@ struct DProtocolMessage{
   uint16_t length;
   uint16_t type;
   uint8_t *body;
+
+  void clean() {
+    delete this->body;
+  }
 };
 
 

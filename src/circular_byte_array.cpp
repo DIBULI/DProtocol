@@ -54,13 +54,18 @@ uint8_t CircularByteArray::peek(uint8_t* data, uint32_t size, uint32_t offset) {
 uint8_t CircularByteArray::remove(uint32_t size) {
   std::lock_guard<std::mutex> lock(xMutex);
 
-  uint32_t lengthToTheEnd = arraySize - tailIndex;
+  if (size > length) {
+    return 1;
+  }
 
-  if (lengthToTheEnd >= size) { // if the remaining array (to the end) capacity can delete the requested data size
-    tailIndex += size;
-    tailIndex %= arraySize;
+  if (headerIndex >= tailIndex) {
+      tailIndex += size;
   } else { // if the remaining array (to the end) capacity can not delete the requested data size
-    tailIndex = size - lengthToTheEnd;
+    if (arraySize - tailIndex > size) {
+      tailIndex += size;
+    } else {
+      tailIndex = size - (arraySize - tailIndex);
+    }
   }
 
   length -= size;

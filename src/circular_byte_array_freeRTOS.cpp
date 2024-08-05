@@ -7,10 +7,11 @@ CircularByteArray::CircularByteArray(uint32_t size) {
   arraySize = size;
   headerIndex = 0;
   tailIndex = 0;
-  // length = headerIndex < tailIndex ? headerIndex + size - tailIndex : headerIndex - tailIndex;
   length = 0;
   xMutex = xSemaphoreCreateBinary();
-  xSemaphoreGive(xMutex);
+  if (xMutex != NULL) {
+    xSemaphoreGive(xMutex);
+  }
 }
 
 CircularByteArray::~CircularByteArray() {
@@ -18,51 +19,62 @@ CircularByteArray::~CircularByteArray() {
 }
 
 uint8_t CircularByteArray::append(const uint8_t* data, uint32_t size) {
-  if (xSemaphoreTake(xMutex, ( TickType_t ) 10) == pdTRUE) {
+  taskENTER_CRITICAL();
     if (size > remain()) {
       return 1;
     } else {
-      uint32_t lengthToTheEnd = arraySize - headerIndex;
-      
-      if (lengthToTheEnd > size) {  // if the remaining array (to the end) capacity can store all the request data
+      uint32_t lengthToTheEnd;
+      if (tailIndex > headerIndex) {
         memcpy(this->byteArray + headerIndex, data, size);
         headerIndex += size;
-        headerIndex %= arraySize;
-      } else {  // if the remaining array (to the end) capacity can  not store all the request data
-        memcpy(this->byteArray + headerIndex, data, lengthToTheEnd);
-        memcpy(this->byteArray, data + lengthToTheEnd, size - lengthToTheEnd);
-        headerIndex = size - lengthToTheEnd;
+      } else {
+        lengthToTheEnd = arraySize - headerIndex;
+        if (lengthToTheEnd >= size) {  // if the remaining array (to the end) capacity can store all the request data
+          memcpy(this->byteArray + headerIndex, data, size);
+          headerIndex += size;
+          headerIndex %= arraySize;
+        } else {  // if the remaining array (to the end) capacity can  not store all the request data
+          memcpy(this->byteArray + headerIndex, data, lengthToTheEnd);
+          memcpy(this->byteArray, data + lengthToTheEnd, size - lengthToTheEnd);
+          headerIndex = size - lengthToTheEnd;
+        }
       }
+      
       length += size;
-
-      xSemaphoreGive(xMutex);
+      taskEXIT_CRITICAL();
       return 0;
     }
-  } else {
-    return 100;
-  }
 }
 
 uint8_t CircularByteArray::peek(uint8_t* data, uint32_t size, uint32_t offset) {
-  if (xSemaphoreTake(xMutex, ( TickType_t ) 10) == pdTRUE) {
-    uint32_t lengthToTheEnd = arraySize - tailIndex - offset;
-
-    if (lengthToTheEnd > size) { // if the remaining array (to the end) capacity can retrieve all the request data
-      memcpy(data, this->byteArray + this->tailIndex + offset, size);
-    } else { // if the remaining array (to the end) capacity can not retrieve all the request data
-      memcpy(data, this->byteArray + this->tailIndex + offset, lengthToTheEnd);
-      memcpy(data + lengthToTheEnd, this->byteArray, size - lengthToTheEnd);
+  taskENTER_CRITICAL();
+    uint32_t lengthToTheEnd;
+    if (size + offset > length) {
+      xSemaphoreGive(xMutex);
+      return 1;
+    } else {
+      if (tailIndex + offset <= headerIndex) {
+        memcpy(data, this->byteArray + this->tailIndex + offset, size);
+      } else {
+        if (tailIndex + offset + size <= arraySize) {
+          memcpy(data, this->byteArray + this->tailIndex + offset, size);
+        } else { // if the remaining array (to the end) capacity can not retrieve all the request data
+          if (arraySize > (tailIndex + offset)) {
+            lengthToTheEnd = arraySize - (tailIndex + offset);
+            memcpy(data, this->byteArray + this->tailIndex + offset, lengthToTheEnd);
+            memcpy(data + lengthToTheEnd, this->byteArray, size - lengthToTheEnd);
+          } else {
+            memcpy(data, this->byteArray + this->tailIndex + offset - arraySize, size);
+          }
+        }
+      }
     }
-
-    xSemaphoreGive(xMutex);
+    taskEXIT_CRITICAL();
     return 0;
-  } else {
-    return 100;
-  }
 }
 
 uint8_t CircularByteArray::remove(uint32_t size) {
-  if (xSemaphoreTake(xMutex, ( TickType_t ) 10) == pdTRUE) {
+  taskENTER_CRITICAL();
     uint32_t lengthToTheEnd = arraySize - tailIndex;
 
     if (lengthToTheEnd > size) { // if the remaining array (to the end) capacity can delete the requested data size
@@ -73,12 +85,10 @@ uint8_t CircularByteArray::remove(uint32_t size) {
     }
 
     length -= size;
+    taskEXIT_CRITICAL();
 
-    xSemaphoreGive(xMutex);
     return 0;
-  } else {
-    return 100;
-  }
+
 }
 
 uint32_t CircularByteArray::remain() {
@@ -94,11 +104,11 @@ uint32_t CircularByteArray::totalSize() {
 }
 
 void CircularByteArray::clean() {
-  if (xSemaphoreTake(xMutex, portMAX_DELAY) == pdTRUE) {
-    headerIndex = 0;
-    tailIndex = 0;
-    length = 0;
-  }
+  taskENTER_CRITICAL();
+  headerIndex = 0;
+  tailIndex = 0;
+  length = 0;
+  taskEXIT_CRITICAL();
 }
 
 bool CircularByteArray::isFull() {
