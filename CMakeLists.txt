@@ -55,8 +55,9 @@ endif()
 
 target_sources(${CMAKE_PROJECT_NAME} INTERFACE ${DPROTOCOL_SOURCE_FILES})
 
-target_link_libraries(${CMAKE_PROJECT_NAME} INTERFACE freertos_kernel)
-
+if (MICROCONTROLLER_COMPILE)
+  target_link_libraries(${CMAKE_PROJECT_NAME} INTERFACE freertos_kernel)
+endif()
 
 if(NOT MICROCONTROLLER_COMPILE)
   add_executable(circular_byte_array_test tests/test_circular_byte_array.cpp)
