@@ -16,6 +16,8 @@ public:
 
   uint8_t retrieveMessage(CircularByteArray *cba, DProtocolMessage *message);
 
+  uint8_t wrapMessage(uint8_t *&message, uint16_t messageType, uint8_t *data, uint16_t size);
+
   /**
    * @brief This method is used to clean up the illegal head message in the message receive buffer (CircularByteArray)
    * 
