@@ -24,12 +24,12 @@ uint8_t DProtocal::retrieveMessage(CircularByteArray *cba, DProtocolMessage *mes
       message->length = messageLength;
 
       // check if current message has already been transformed completely
-      if (cba->size() == (6 + messageLength)
+      if (cba->size() == (8 + messageLength)
           || (cba->peek((uint8_t *)&message_header, 2, 8 + messageLength) == 0 && message_header == MESSAGE_START_MAGIC_NUMBER)) {
         cba->peek((uint8_t *)&message->type, 2, 6);
         message->body = new uint8_t[messageLength];
         cba->peek(message->body, messageLength, 8);
-        cba->remove(messageLength);
+        cba->remove(messageLength + 8);
         return 0;
       } else if (cba->size() < (8 + messageLength)) {
         return 1;
@@ -45,14 +45,12 @@ uint8_t DProtocal::retrieveMessage(CircularByteArray *cba, DProtocolMessage *mes
 }
 
 uint8_t DProtocal::wrapMessage(uint8_t *&messageBinary, uint16_t messageType, uint8_t *data, uint16_t size) {
-  messageBinary = new uint8_t[6 + size];
   *((uint16_t *) messageBinary) = MESSAGE_START_MAGIC_NUMBER;
   *((uint8_t *) messageBinary + 2) = 1;
   *((uint8_t *) messageBinary + 3) = 1;
-  *((uint16_t *) messageBinary + 4) = size;
-  *((uint16_t *) messageBinary + 6) = messageType;
+  *((uint16_t *) (messageBinary + 4)) = size;
+  *((uint16_t *) (messageBinary + 6)) = messageType;
   memcpy(messageBinary + 8, data, size);
-
   return 0;
 }
 
