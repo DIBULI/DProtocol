@@ -17,7 +17,7 @@ uint8_t DProtocal::retrieveMessage(CircularByteArray *cba, DProtocolMessage *mes
   if (cba->peek((uint8_t *)&message_header, 2, 0) == 0 && message_header == MESSAGE_START_MAGIC_NUMBER) {
     // check the protocol version
     if (cba->peek(&protocol_version, 1, 2) == 0 && protocol_version == 1) {
-      cba->peek((uint8_t *)&messageLength, 1, 4);
+      cba->peek((uint8_t *)&messageLength, 2, 4);
       // then retrieve the message and translate to d protocol message
       message->protocolVersion = 1;
       message->clientId = 1;
