@@ -37,9 +37,13 @@ uint8_t DProtocal::retrieveMessage(CircularByteArray *cba, DProtocolMessage *mes
         // encounter illegal message head
         return 10;
       }
+    } else {
+      std::cout << "illegal protocol version. version: " << protocol_version << std::endl;
+      return 10;
     }
   } else {
     // the head message inside the cba is invalid
+    std::cout << "illegal starting magic number. number: " << message_header << std::endl;
     return 10;
   }
 }
